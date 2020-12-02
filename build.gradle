@@ -32,6 +32,7 @@ allprojects {
 
     repositories {
 		mavenCentral()
+        jcenter()
 		maven { url 'https://resources.knopflerfish.org/repo/maven2/release/' }
 		maven { url "${project.gradle.gradleUserHomeDir}/local-artifacts" }
 		maven { url 'https://dl.bintray.com/freeplane/freeplane' }
