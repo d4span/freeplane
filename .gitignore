@@ -110,6 +110,9 @@ local.properties
 .loadpath
 .recommenders
 
+# Visual Studio Code
+.vscode/
+
 # Eclipse Core
 .project
 
