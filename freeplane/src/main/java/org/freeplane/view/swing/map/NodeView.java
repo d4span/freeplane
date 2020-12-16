@@ -59,6 +59,7 @@ import org.freeplane.features.edge.EdgeController;
 import org.freeplane.features.edge.EdgeController.Rules;
 import org.freeplane.features.edge.EdgeStyle;
 import org.freeplane.features.filter.Filter;
+import org.freeplane.features.filter.FilterController;
 import org.freeplane.features.filter.hidden.NodeVisibility;
 import org.freeplane.features.filter.hidden.NodeVisibilityConfiguration;
 import org.freeplane.features.highlight.HighlightController;
@@ -761,14 +762,7 @@ public class NodeView extends JComponent implements INodeView {
 	}
 
 	public NodeView getChildDistanceContainer(){
-		if (model.isVisible(map.getFilter())) {
-			return this;
-		}
-		NodeView parentView = getParentView();
-		if(parentView == null)
-			// actually should not happen
-			return this;
-		return parentView.getChildDistanceContainer();
+		return this;
 
 	}
 
@@ -840,6 +834,21 @@ public class NodeView extends JComponent implements INodeView {
 		else
 			return getModel().hasVisibleContent(map.getFilter());
 	}
+	
+	boolean isSubtreeVisible() {
+	    if(isContentVisible())
+	        return true;
+        final Component[] components = getComponents();
+        for (int i = 0; i < components.length; i++) {
+        	if (!(components[i] instanceof NodeView)) {
+        		continue;
+        	}
+        	final NodeView view = (NodeView) components[i];
+        	if(view.isSubtreeVisible())
+        	    return true;
+        }
+        return false;
+	}
 
 	public boolean isLeft() {
 		if (getMap().getLayoutType() == MapViewLayout.OUTLINE) {
@@ -894,6 +903,8 @@ public class NodeView extends JComponent implements INodeView {
 		}
 		if(property == NodeVisibilityConfiguration.class) {
 			updateAll();
+			if(event.getNewValue() != NodeVisibilityConfiguration.SHOW_HIDDEN_NODES)
+			    FilterController.getCurrentFilterController().selectVisibleNodes(getMap().getMapSelection());
 			return;
 		}
 
@@ -901,6 +912,8 @@ public class NodeView extends JComponent implements INodeView {
 				&& node.getMap().getRootNode().getExtension(NodeVisibilityConfiguration.class) != NodeVisibilityConfiguration.SHOW_HIDDEN_NODES) {
 			final NodeView parentView = getParentView();
 			parentView.setFolded(parentView.isFolded, true);
+            if(event.getNewValue() == NodeVisibility.HIDDEN && isSelected())
+                FilterController.getCurrentFilterController().selectVisibleNodes(getMap().getMapSelection());
 			return;
 		}
 
@@ -1038,29 +1051,31 @@ public class NodeView extends JComponent implements INodeView {
 				LogUtils.severe("ancestor map paintingMode = " + ancestorMap.getPaintingMode());
 			throw new NullPointerException();
 		}
-		if (isContentVisible()) {
-			final Graphics2D g2 = (Graphics2D) g;
-			final ModeController modeController = map.getModeController();
-			final Object renderingHint = g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
-			switch (paintingMode) {
-				case CLOUDS:
-					modeController.getController().getMapViewManager().setEdgesRenderingHint(g2);
-					final boolean isRoot = isRoot();
-					if (isRoot) {
-						paintCloud(g);
-					}
-                    paintClouds(g2);
-					g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, renderingHint);
-					break;
-				case NODES:
-					g2.setStroke(MainView.DEF_STROKE);
-					modeController.getController().getMapViewManager().setEdgesRenderingHint(g2);
-                    paintEdges(g2, this);
-					g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, renderingHint);
-					break;
-				default:
-					break;
-			}
+		final Graphics2D g2 = (Graphics2D) g;
+		final ModeController modeController = map.getModeController();
+		final Object renderingHint = g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+		switch (paintingMode) {
+		case CLOUDS:
+		    if (isSubtreeVisible()) {
+		        modeController.getController().getMapViewManager().setEdgesRenderingHint(g2);
+		        final boolean isRoot = isRoot();
+		        if (isRoot) {
+		            paintCloud(g);
+		        }
+		        paintClouds(g2);
+		        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, renderingHint);
+		    }
+		    break;
+		case NODES:
+		    if (isContentVisible()) {
+		        g2.setStroke(MainView.DEF_STROKE);
+		        modeController.getController().getMapViewManager().setEdgesRenderingHint(g2);
+		        paintEdges(g2, this);
+		        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, renderingHint);
+		    }
+		    break;
+		default:
+		    break;
 		}
 		if (PAINT_DEBUG_BORDER && isSelected() && paintingMode.equals(PaintingMode.SELECTED_NODES)){
 			final int spaceAround = getZoomed(SPACE_AROUND);
@@ -1078,7 +1093,7 @@ public class NodeView extends JComponent implements INodeView {
     }
 
 	private void paintCloud(final Graphics g) {
-		if (!isContentVisible()) {
+		if (!isSubtreeVisible()) {
 			return;
 		}
 		final CloudModel cloudModel = getCloudModel();
@@ -1099,9 +1114,9 @@ public class NodeView extends JComponent implements INodeView {
             final Point p = new Point();
             UITools.convertPointToAncestor(nodeView, p, this);
             g.translate(p.x, p.y);
-            if (nodeView.isContentVisible()) {
+            if (nodeView.isSubtreeVisible()) {
                 nodeView.paintCloud(g);
-             }
+            }
             else {
                 nodeView.paintClouds(g);
             }
@@ -1396,6 +1411,7 @@ public class NodeView extends JComponent implements INodeView {
 		invalidate();
 		updateShape();
 		updateEdge();
+		updateCloud();
 		if (!isContentVisible()) {
 			mainView.setVisible(false);
 			return;
@@ -1436,7 +1452,6 @@ public class NodeView extends JComponent implements INodeView {
 		updateShortener(getModel(), textShortened);
 		mainView.updateIcons(this);
 		mainView.updateText(getModel());
-		updateCloud();
 		modelBackgroundColor = NodeStyleController.getController(getMap().getModeController()).getBackgroundColor(model);
 		revalidate();
 		repaint();
@@ -1716,7 +1731,23 @@ public class NodeView extends JComponent implements INodeView {
 
     public Rectangle getInnerBounds() {
         int spaceAround = getSpaceAround();
-        return new Rectangle(spaceAround, spaceAround, getWidth() - 2 * spaceAround, getHeight() - 2 * spaceAround);
+        if (isContentVisible())
+            return new Rectangle(spaceAround, spaceAround, getWidth() - 2 * spaceAround, getHeight() - 2 * spaceAround);
+        else {
+            Rectangle innerBounds = new Rectangle(spaceAround, spaceAround, -1, -1); 
+            getChildrenViews().stream()
+            .map(v -> {
+                Rectangle r = v.getInnerBounds();
+                r.x += v.getX(); 
+                r.y += v.getY(); 
+                return r;
+            })
+            .forEach(innerBounds::add);
+            innerBounds.y = spaceAround;
+            innerBounds.width = Math.max(0, innerBounds.width);
+            innerBounds.height = getHeight() - 2 * spaceAround;
+            return innerBounds;
+        }
     }
 
 
