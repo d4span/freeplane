@@ -1,0 +1,9 @@
+@startuml FreeplaneFX Architecture
+
+[FreeplaneFX] <<org.freeplanefx..>>
+
+[Spring Framework] <<org.springframework..>>
+
+[FreeplaneFX] --> [Spring Framework]
+
+@enduml
