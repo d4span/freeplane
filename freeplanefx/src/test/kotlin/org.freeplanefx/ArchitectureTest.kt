@@ -24,10 +24,11 @@ class ArchitectureTest {
     }
 
     val onionArchitecture = Architectures.onionArchitecture()
-        .domainModels("org.freeplanefx.model")
-        .domainServices("org.freeplanefx.domain")
-        .adapter("org.freeplanefx.adapters")
-        .applicationServices("org.freeplanefx");
+        .domainModels("org.freeplanefx.model..")
+        .domainServices("org.freeplanefx.domain..")
+        .applicationServices("org.freeplanefx.application..")
+        .adapter("Spring", "org.freeplanefx.adapters.spring..")
+        .adapter("Freeplane", "org.freeplanefx.adapters.freeplane..")
 
     @Test
     fun overallArchitecture() {
@@ -43,7 +44,7 @@ class ArchitectureTest {
         val numClassesOnClasspath = classesOnClasspath.size
         assertNotEquals(0, numClassesOnClasspath, "No classes outside of JDK found on classpath...")
 
-        // onionArchitecture.check(classesOnClasspath)
+        onionArchitecture.check(classesOnClasspath)
         adhereToPlantUmlRule.check(classesOnClasspath)
     }
 }
