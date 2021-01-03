@@ -4,6 +4,7 @@ val archunitVersion = "0.15.0"
 val springBootVersion = "2.4.0"
 val mockitoVersion = "3.4.0"
 val kotestVersion = "4.3.2"
+val openjfxVersion = "11.0.2"
 
 plugins {
     kotlin("jvm") version "1.4.21"
@@ -28,7 +29,12 @@ kotlin{
     sourceSets["main"].apply {
         dependencies {
             implementation(project(":freeplane"))
+            
             implementation("org.springframework.boot:spring-boot-starter:" + springBootVersion)
+
+            implementation("org.openjfx:javafx-graphics:" + openjfxVersion + ":linux")
+            implementation("org.openjfx:javafx-controls:" + openjfxVersion + ":linux")
+            implementation("org.openjfx:javafx-base:" + openjfxVersion + ":linux")
         }
     }
 
